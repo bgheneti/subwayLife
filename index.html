@@ -11,41 +11,58 @@
 </body>
 
 <script type="text/paperscript" canvas="myCanvas">
-  var lines = [
+  var allLines = [
     {
       'name':'education',
+      'selectColor': 'black',
       'color': '#ff6319',
-      'locations':[{'age':5},{'age':20}]
+      'main': false,
+      'locations':[{'age':5},{'age':15},{'age':20}]
     },
     {
       'name':'work',
-      'color': '#9f6319',
+      'selectColor': 'black',
+      'color': '#820061',
+      'main': 'false',
       'locations':[{'age':14}]
     },
     {
       'name': 'life',
+      'selectColor': 'black',
       'color': '#00933c',
+      'main': true,
       'locations':[{'age':0}]
     },
     {     
       'name': 'languages',
+      'selectColor': 'black',
       'color': '#fccc0a',
+      'main': false,
       'locations':[{'age':2}]
     },
     {
       'name':'location',
-      'color': '#6f6319',
-      'locations':[{'age':0}]
+      'selectColor': 'black',
+      'color': '#0039a6',
+      'main': false,
+      'locations':[{'age':0},{'age':7}]
     }
   ]
 
 
+  function calcMaxAge(lines){
+    return Math.max.apply(null,lines.map(function(i){return Math.max.apply(null,i.locations.map(function(j){return j.age;}));}))+1;
+  }
+
+  function calcLastSplitAge(lines){
+    return Math.max.apply(null,lines.map(function(i){return Math.min.apply(null,i.locations.map(function(j){return j.age;}));}));
+  }
   lastAge=0;
   age=0; 
   agePaths=[];
-  maxAge=Math.max.apply(null,lines.map(function(i){return Math.max.apply(null,i.locations.map(function(j){return j.age;}));}))+1;
-  lastSplitAge=Math.max.apply(null,lines.map(function(i){return Math.min.apply(null,i.locations.map(function(j){return j.age;}));}));
-  maxTime=200;
+  maxAge=calcMaxAge(allLines);
+  lastSplitAge=calcLastSplitAge(allLines);
+  maxTime=100;
   rootX=50;
   rootY=400;
   distance=1000;
@@ -55,14 +72,39 @@
   presMax=0;
   offset=0;
 
-  linePaths=[];
-  imPaths=[];
-  for(lineNum in lines){
-    linePaths.push(new Path({strokeColor: lines[lineNum].color, strokeWidth: 10}));
-    imPaths.push(null);
-    lines[lineNum].angle=minAngle+lineNum*width/(lines.length-1);  
-    if(lineNum!=2){
-      linePaths[lineNum].sendToBack();
+  mapDrawn=false;
+  selectLine={
+    'name':'education',
+    'color': '#ff6319',
+    'selectColor': 'ff6319',
+    'main': false,
+    'locations':[{'age':5},{'age':15}]
+  };
+
+  selectedPath=null;
+  selectDrawn=false;
+  selected=true;
+  selectAge=15;
+  startTime=0;
+  selectNum=0;
+  selectIncrement=0.1;
+  linePrep(allLines);
+
+
+  function linePrep(lines){
+    for(lineNum in lines){
+      line=lines[lineNum];
+      color=line.color;
+      line.path=new Path({strokeColor: color, strokeWidth: 10});
+      line.imPath=null; 
+      line.selectPath=null;
+      if(!line.hasOwnProperty('angles')){
+        line.angles=[minAngle+lineNum*width/(allLines.length-1)];
+      }
+      line.angle=line.angles[0];
+      if(line.main==false){
+        line.path.sendToBack();
+      }
     }
   }
 
@@ -75,15 +117,15 @@
     }
   }
  
-  function drawTriangle(rootPoint,height,width){
-    triangle=new Path({fillColor: line.color, strokeWidth: 2, closed:true});
+  function drawTriangle(rootPoint,height,width,color){
+    triangle=new Path({fillColor: color, strokeWidth: 2, closed:true});
     triangle.add(rootPoint+{x:0,y:height/2},rootPoint+{x:width,y:0},rootPoint+{x:0,y:-height/2});
   }
 
-  function drawTriangles(){
+  function drawTriangles(lines){
     for(lineNum in lines){
       line=lines[lineNum];
-      drawTriangle(linePoint(line,maxAge+0.5),15,27);
+      drawTriangle(linePoint(line,maxAge+0.5),15,27,line.color);
     }
   }
 
@@ -109,80 +151,146 @@
     }
   }
 
-  function drawLines(age){
-    for(lineNum in linePaths){
+  function drawLines(age,lines,select){
+    select=select||false; 
+    for(lineNum in lines){
       line=lines[lineNum];
       minAge=line.locations[0].age;
       if(age>=minAge || minAge===0){
-        presMin=Math.min(line.angle,presMin);
-        presMax=Math.max(line.angle,presMax);
+        presMin=Math.min(Math.min.apply(null,line.angles),presMin);
+        presMax=Math.max(Math.max.apply(null,line.angles),presMax);
         point=linePoint(line,age);
-        linePaths[lineNum].add(point);
-        if(imPaths[lineNum]!=null){
-          imPaths[lineNum]=null;
+        line.path.add(point);
+        if(line.imPath!=null){
+          line.imPath=null;
         }
       }
       else if(age+1>minAge){
-        if(imPaths[lineNum]===null){
+        if(line.imPath===null){
           if(lineNum<2){
             offset={x:0,y:0};
           }
           else{
             offset={x:0,y:-0};
           }
-          currentPoint=new Point(rootX+distance*age/maxAge,rootY);
-          linePaths[lineNum].add(currentPoint-{x:0,y:0});
+          currentPoint=new Point(rootX+distance*(minAge-1)/maxAge,rootY);
+          line.path.add(currentPoint-{x:0,y:0});
           startPoint=currentPoint+offset;
           endPoint=linePoint(line,minAge);
-          imPaths[lineNum]=new Path(startPoint, endPoint);
+          line.imPath=new Path(startPoint, endPoint);
         }
         else{
           dif=1+age-minAge;
-          linePaths[lineNum].add(imPaths[lineNum].getPointAt(dif*imPaths[lineNum].length));
+          line.path.add(line.imPath.getPointAt(dif*line.imPath.length));
         }
      }
     }
   }
 
-  function drawStops(age){
+  function selectBlink(stop,lineNum,stopAge){
+    if(selectNum===lineNum && selectAge===stopAge){
+      line=allLines[lineNum];
+      if(selectDrawn && stop.fillColor=='white'){
+        stop.fillColor='black';
+      }
+      else{
+        stop.fillColor='white';
+      }
+      console.log(stop.fillColor);
+      setTimeout(selectBlink,300,stop,lineNum,stopAge);
+    }
+    else{
+      stop.fillColor='white';
+    }
+  }
+  function selectStop(stop,lineNum,stopNum){
+    line=allLines[lineNum];
+    console.log('stopNUm',stopNum);
+    selectLine={'color':line.selectColor,main:true,locations:[],angles:[line.angles[0]]};
+    for(var locationNum=0; locationNum<stopNum+1; locationNum++){
+      console.log(locationNum);
+      selectLine.locations.push(line.locations[locationNum]);
+    }
+    console.log(selectLine);
+    selectDrawn=false;
+    selectNum=lineNum;
+    startTime=event.count;
+    if(selectedPath!=null){
+      selectedPath.remove();
+    }
+    age=calcLastSplitAge([selectLine])-1;
+    selectAge=line.locations[stopNum].age;
+    linePrep([selectLine]);
+    selectedPath=selectLine.path;
+    selectLine.path.insertAbove(allLines[selectNum].path);
+    selectPath([selectLine]);
+    selectBlink(stop,selectNum,selectAge);
+  }
+
+
+  function drawStops(age,lines){
     for(lineNum in lines){
       line=lines[lineNum];
-      for(stopNum in line.locations){
+      for(var stopNum=0; stopNum<line.locations.length;stopNum++){
         stopAge=line.locations[stopNum].age;
         if(lastAge<=stopAge && stopAge<age){
-          console.log(stopAge);
           stopPoint=linePoint(line,stopAge);
-          linePaths[lineNum].add(stopPoint);
-          circle=new Path.Circle(stopPoint, 5);
+          line.path.add(stopPoint);
+          if(line.angles.length>stopNum+1){
+            line.angle=line.angles[stopNum+2];
+	  }
+          var circle=new Path.Circle(stopPoint, 7);
           circle.fillColor = 'white';
           circle.strokeColor = 'black';
-          circle.strokeWidth = 2; 
+          circle.strokeWidth = 2;
           if(stopAge===0){
-            circle.radius = 15;
-            circle.strokeWidth = 3;
+            circle.scale(2);
+            circle.strokeWidth = 5;
           }
-        }
+          console.log(stopNum);
+          circle.onClick=function(lineNum,stopNum){
+	    return function(event){selectStop(this,lineNum,stopNum)}; 
+	  }(lineNum,stopNum);
+	}
       }
     }
   }
 
-  function draw(age){
-    drawStops(age);
-    drawLines(age);
+  function draw(age,lines){
+    drawStops(age,lines);
+    drawLines(age,lines);
     drawRegions(age);
   }
 
+  function selectDraw(age,lines){
+    drawLines(age,lines);
+    drawRegions(age);
+  } 
+
+  function selectPath(lines){
+      selectDraw(age,lines);
+      if(age<selectAge){
+        age+=selectIncrement;
+        selectDraw(age,lines);
+        lastAge=age;
+        setTimeout(selectPath, 0.5, lines);
+      }
+      else{
+        selectDrawn=true;
+      }
+  }				
+
   function onFrame(event){
     time=event.count;
-    if(age<maxAge+0.5){
+    if(!mapDrawn && age<maxAge+0.5){
       age=maxAge*time/maxTime;
-      draw(age);
+      draw(age,allLines);
       lastAge=age; 
     }
-    else{
-      drawTriangles();
+    else if(!mapDrawn){
+      drawTriangles(allLines);
+      mapDrawn=true;
     }
   }
 
 </script>
-</html>
