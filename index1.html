@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Title of the document</title>
+<script type="text/javascript" src="http://localhost:3000/js/paperjs/paper-core.min.js"></script>
+</head>
+
+<body style="background-color:#f9f9f9">
+<canvas id="myCanvas" width="1000" height="800" style="border:1px solid #000000;">
+</canvas>
+</body>
+<script>
+var c = document.getElementById("myCanvas");
+var ctx = c.getContext("2d");
+var lines = [
+	{
+  	'name':'education',
+   	'color': '#ff6319	',
+  	'locations':[{'age':1.0}]
+  },
+  {
+  	'name': 'life',
+    'color': '#00933c',
+  	'locations':[{'age':2.0}]
+  },
+  {	
+  	'name': 'cow',
+    'color': '#fccc0a',
+  	'locations':[{'age':7.0}]
+  }
+]
+
+maxAge=Math.max.apply(null,lines.map(i=> Math.max(i.locations.map(j=>j.age))))+1;
+maxTime=200;
+rootX=50;
+rootY=400;
+distance=500;
+//x=Math.max(for (i of lines) Math.max(for (j of i.locations) Math.max(j.age)));
+
+function drawRegions(age){
+	for(var ageLine=1; ageLine<age; ageLine++){
+  	ctx.beginPath();
+    ctx.arc(rootX,rootY, ageLine/maxAge*distance, -Math.PI/4,Math.PI/4);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'lightgrey';
+    ctx.stroke();
+  }
+}
+
+
+function draw(age){
+	drawRegions(age);
+	ctx.beginPath();
+	ctx.lineWidth = 7;
+  numLines=lines.length;
+  angle=-Math.PI/4;
+  for(var lineNum in lines){
+  		line=lines[lineNum];
+      ctx.beginPath();
+  		ctx.strokeStyle=line.color;
+  		ctx.moveTo(rootX,rootY);
+  	  ctx.lineTo(rootX+distance*Math.cos(angle)*age/maxAge, rootY+distance*Math.sin(angle)*age/maxAge);
+      ctx.stroke();
+      angle+=Math.PI/2/(numLines-1);
+  }	
+}
+
+function animateDraw(time){
+	if(time<maxTime){
+  	console.log(time);
+  	age=maxAge*time/maxTime;
+    draw(age);
+    time+=1;
+    setTimeout(animateDraw, 10, time);
+  }
+}
+animateDraw(0);
+</script>
+</html>
